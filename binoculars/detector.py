@@ -94,6 +94,28 @@ class Binoculars(object):
         binoculars_scores = ppl / x_ppl
         binoculars_scores = binoculars_scores.tolist()
         return binoculars_scores[0] if isinstance(input_text, str) else binoculars_scores
+    
+    def compute_score_1(self, input_text: Union[list[str], str]) -> Union[float, list[float]]:
+        batch = [input_text] if isinstance(input_text, str) else input_text
+        encodings = self._tokenize(batch)
+        observer_logits, performer_logits = self._get_logits(encodings)
+        ppl1 = perplexity(encodings, performer_logits)
+        ppl2 = perplexity(encodings, observer_logits)
+        binoculars_scores = abs(ppl1 - ppl2)
+        binoculars_scores = binoculars_scores.tolist()
+        return binoculars_scores[0] if isinstance(input_text, str) else binoculars_scores
+    
+    def compute_score_2(self, input_text: Union[list[str], str]) -> Union[float, list[float]]:
+        batch = [input_text] if isinstance(input_text, str) else input_text
+        encodings = self._tokenize(batch)
+        observer_logits, performer_logits = self._get_logits(encodings)
+        x_ppl1 = entropy(observer_logits.to(DEVICE_1), performer_logits.to(DEVICE_1),
+                        encodings.to(DEVICE_1), self.tokenizer.pad_token_id)
+        x_ppl2 = entropy(performer_logits.to(DEVICE_1), observer_logits.to(DEVICE_1),
+                        encodings.to(DEVICE_1), self.tokenizer.pad_token_id)
+        binoculars_scores = x_ppl1 / x_ppl2
+        binoculars_scores = binoculars_scores.tolist()
+        return binoculars_scores[0] if isinstance(input_text, str) else binoculars_scores
 
     def predict(self, input_text: Union[list[str], str]) -> Union[list[str], str]:
         binoculars_scores = np.array(self.compute_score(input_text))
